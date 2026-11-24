@@ -32,12 +32,29 @@ TrajectoryPoint trajectory[] = {
 
 unsigned int mandelbrot(complex double c, unsigned int max_iter)
 {
-    complex double z = 0.0 + 0.0 * I;
+    /*complex double z = 0.0 + 0.0 * I;
     unsigned int iter = 0;
 
     while (cabs(z) <= 2.0 && iter < max_iter)
     {
         z = z * z + c;
+        iter++;
+    }
+
+    return iter;*/
+
+    // réécriture de la fonction sans les nombres complexes
+    double zR = 0.0;
+    double zI = 0.0;
+    double cR = creal(c);
+    double cI = cimag(c);
+    unsigned int iter = 0;
+
+    while (sqrt(zR * zR + zI * zI) <= 2.0 && iter < max_iter)
+    {
+        double temp = zR * zR - zI * zI + cR;
+        zI = 2.0 * zR * zI + cI;
+        zR = temp;
         iter++;
     }
 
@@ -63,15 +80,20 @@ unsigned int *fillMandelbrot(unsigned int width, unsigned int height, double x_m
         return NULL;
     }
 
-    // Fill the Mandelbrot set array
-    for (unsigned int j = 0; j < height; j++)
+    #pragma omp parallel num_threads(6) shared(height, width, x_max, x_min, y_max, y_min) // machine de TP avec 6 coeurs
     {
-        for (unsigned int i = 0; i < width; i++)
+        double x_temp = (x_max - x_min) / (width - 1);
+        // Fill the Mandelbrot set array
+        #pragma omp for schedule(dynamic)
+        for (unsigned int j = 0; j < height; j++)
         {
-            double x = x_min + (x_max - x_min) * i / (width - 1);
-            double y = y_min + (y_max - y_min) * j / (height - 1);
-            complex double c = x + y * I;
-            mandelbrot_set[j * width + i] = mandelbrot(c, max_iter);
+            double y = y_min + (y_max - y_min) * j / (height - 1); // Sortie de la boucle for car dépend que de j
+            for (unsigned int i = 0; i < width; i++)
+            {
+                double x = x_min + x_temp * i;
+                complex double c = x + y * I;
+                mandelbrot_set[j * width + i] = mandelbrot(c, max_iter);
+            }
         }
     }
 
@@ -96,41 +118,47 @@ unsigned char *mandelbrotToYUV(unsigned int *mandelbrot_set, unsigned int width,
 
     // Fill the YUV image based on the Mandelbrot set values
     // Scan the pixels in 2x2 blocks to compute U and V values
-    for (unsigned int j = 0; j < height; j += 2)
+
+    #pragma omp parallel num_threads(6) shared(height, width, mandelbrot_set, max_iter) // machine de TP avec 6 coeurs
     {
-        for (unsigned int i = 0; i < width; i += 2)
+        #pragma omp for schedule(static)
+        for (unsigned int j = 0; j < height; j += 2)
         {
-            unsigned int u_val = 0;
-            unsigned int v_val = 0;
-            // Process each pixel in the 2x2 block
-            // Accumulate U and V values for the 2x2 block
-            for (unsigned int jj = 0; jj < 2; jj++)
+            for (unsigned int i = 0; i < width; i += 2)
             {
-                for (unsigned int ii = 0; ii < 2; ii++)
+                unsigned int u_val = 0;
+                unsigned int v_val = 0;
+                // Process each pixel in the 2x2 block
+                // Accumulate U and V values for the 2x2 block
+                for (unsigned int jj = 0; jj < 2; jj++)
                 {
-                    unsigned int idx = (j + jj) * width + (i + ii);
-                    unsigned int iter = mandelbrot_set[idx];
-                    if (iter >= max_iter)
+                    unsigned int idx_temp = (j + jj) * width + i;
+                    for (unsigned int ii = 0; ii < 2; ii++)
                     {
-                        // Point is in the Mandelbrot set, use YUV_IN_COLOR
-                        y[idx] = YUV_IN_COLOR[0];
-                        u_val += YUV_IN_COLOR[1];
-                        v_val += YUV_IN_COLOR[2];
-                    }
-                    else
-                    {
-                        // Point is not in the Mandelbrot set, interpolate between YUV_MIN_COLOR and YUV_MAX_COLOR
-                        double t = sqrt((double)iter / max_iter);
-                        y[idx] = (unsigned char)((1 - t) * YUV_MIN_COLOR[0] + t * YUV_MAX_COLOR[0]);
-                        u_val += (unsigned char)((1 - t) * YUV_MIN_COLOR[1] + t * YUV_MAX_COLOR[1]);
-                        v_val += (unsigned char)((1 - t) * YUV_MIN_COLOR[2] + t * YUV_MAX_COLOR[2]);
+                        unsigned int idx = idx_temp + ii;
+                        unsigned int iter = mandelbrot_set[idx];
+                        if (iter >= max_iter)
+                        {
+                            // Point is in the Mandelbrot set, use YUV_IN_COLOR
+                            y[idx] = YUV_IN_COLOR[0];
+                            u_val += YUV_IN_COLOR[1];
+                            v_val += YUV_IN_COLOR[2];
+                        }
+                        else
+                        {
+                            // Point is not in the Mandelbrot set, interpolate between YUV_MIN_COLOR and YUV_MAX_COLOR
+                            double t = sqrt((double)iter / max_iter);
+                            y[idx] = (unsigned char)((1 - t) * YUV_MIN_COLOR[0] + t * YUV_MAX_COLOR[0]);
+                            u_val += (unsigned char)((1 - t) * YUV_MIN_COLOR[1] + t * YUV_MAX_COLOR[1]);
+                            v_val += (unsigned char)((1 - t) * YUV_MIN_COLOR[2] + t * YUV_MAX_COLOR[2]);
+                        }
                     }
                 }
-            }
 
-            // Average the U and V values for the 2x2 block
-            u[(j / 2) * (width / 2) + (i / 2)] = u_val / 4;
-            v[(j / 2) * (width / 2) + (i / 2)] = v_val / 4;
+                // Average the U and V values for the 2x2 block
+                u[(j / 2) * (width / 2) + (i / 2)] = u_val / 4;
+                v[(j / 2) * (width / 2) + (i / 2)] = v_val / 4;
+            }
         }
     }
 
