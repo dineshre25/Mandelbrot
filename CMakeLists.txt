@@ -44,7 +44,6 @@ endif()
 # **************** Libraries ****************
 # *******************************************
 
-
 set(LIBS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/lib/cmake_modules/")
 include(${LIBS_DIR}/CMakeLists.txt)
@@ -59,6 +58,8 @@ include(${DAT_DIR}/CMakeLists.txt)
 # *******************************************
 # ************ mandelbrot.exe  *************
 # *******************************************
+find_package(OpenMP REQUIRED)
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include ${SDL2_INCLUDE_DIR} ${SDL2TTF_INCLUDE_DIR})
 file(
 	GLOB_RECURSE
@@ -70,7 +71,7 @@ file(
 add_executable(mandelbrot ${source_files} ${header_files})
 
 if (WIN32)
-	target_link_libraries(mandelbrot ${SDL2_LIBRARY} ${SDL2TTF_LIBRARY})
+	target_link_libraries(mandelbrot ${SDL2_LIBRARY} ${SDL2TTF_LIBRARY} OpenMP::OpenMP_C)
 else()
-	target_link_libraries(mandelbrot ${SDL2_LIBRARY} ${SDL2TTF_LIBRARY} m)
+	target_link_libraries(mandelbrot ${SDL2_LIBRARY} ${SDL2TTF_LIBRARY} m OpenMP::OpenMP_C)
 endif()
