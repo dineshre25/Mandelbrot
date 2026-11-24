@@ -1,0 +1,32 @@
+bin/
+build/
+lib/
+
+# Compiled objects and dependencies
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.d
+
+# Executables
+*.exe
+*.out
+
+# Debug and profiling files
+*.gch
+*.gcda
+*.gcno
+*.gcov
+*.prof
+core
+core.*
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
