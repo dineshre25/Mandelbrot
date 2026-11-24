@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libsdl2-dev libsdl2-ttf-dev \
+            libomp-dev \
+            cmake ninja-build \
+            xvfb libgl1-mesa-dri
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -G Ninja
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Run headless (150 frames)
+        run: |
+          xvfb-run --auto-servernum \
+            ./build/Release/mandelbrot --max-frames 150 \
+            2>&1 | tee run_output.txt
+
+      - name: Compare MD5 against reference
+        run: |
+          if diff md5.txt md5_ref2.txt; then
+            echo "MD5 check PASSED - all 150 frames match reference"
+          else
+            echo "MD5 check FAILED - output differs from reference"
+            exit 1
+          fi
+
+      - name: Report FPS
+        if: always()
+        run: |
+          {
+            echo "## Performance Report"
+            echo "_FPS is informational — hardware varies across developers' machines._"
+            echo ""
+            echo "| Segment | FPS | Global FPS |"
+            echo "| ------- | --- | ---------- |"
+            grep "^FPS:" run_output.txt | awk 'NR==1{seg="0→1"} NR==2{seg="1→2"} NR==3{seg="2→3"} NR==4{seg="3→4"} \
+              {match($0, /FPS: ([0-9.]+) \(global: ([0-9.]+)\)/, a); \
+               print "| " seg " | " a[1] " | " a[2] " |"}'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload CI artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-results-${{ github.sha }}
+          path: |
+            md5.txt
+            run_output.txt

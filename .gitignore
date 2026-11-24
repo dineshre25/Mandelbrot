@@ -1,6 +1,5 @@
 bin/
 build/
-lib/
 
 # Compiled objects and dependencies
 *.o
