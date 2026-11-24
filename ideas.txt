@@ -1,0 +1,6 @@
+QuadTrees?
+
+rewrite sqrt and costly operations?
+
+Il faut qu'on puisse monitor les performances du code (parties qui prennent le plus de temps)
+Il faut changer le display du MD5 pour qu'il print le MD5 ds la console et pas qu'il nous génère/ecrit ds un fichier sur le disque dur du coté du desktop.
